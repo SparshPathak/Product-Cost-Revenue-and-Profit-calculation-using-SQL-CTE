@@ -1,0 +1,112 @@
+Dummy Company - Delivr
+
+TABLE: meals
+meal_id	  eatery	                  meal_price	  meal_cost
+0	        'Leaning Tower of Pizza'	4	            2
+1	        'Leaning Tower of Pizza'	3.5	          1.25
+2	        'Burgatorio'	            6	            3.25
+3	        'Burgatorio'	            6.25	        2.75
+4	        'Burgatorio'	            5	            1.25
+5	        'Bean Me Up Scotty'	      4.5	          0.75
+6	        'Bean Me Up Scotty'	      4	            1.25
+7	        'The Moon Wok'	          3.75	        1.25
+8	        'The Moon Wok'	          4.75	        2.25
+9	        'The Moon Wok'	          4.5	          2
+10        'Life of Pie'	            3.25	        0.5
+...
+
+TABLE: orders
+order_date	user_id	order_id	meal_id	order_quantity
+2018-06-01	0	      0	        4	      3
+2018-06-01	0	      0	        14	    2
+2018-07-01	0	      0	        15	    1
+2018-08-01	0	      0	        17	    1
+2018-08-01	1	      1	        16	    2
+2018-09-01	1	      1	        17	    1
+2019-01-01	2	      2	        7	      3
+2019-02-01	2	      2	        12	    3
+2019-04-01	3	      3	        15	    1
+2019-05-01	4	      4	        5	      3
+...
+
+TABLE: stock
+stocking_date	meal_id	stocked_quantity
+2018-06-01	  0	      76
+2018-06-01	  1	      42
+2018-06-01	  4	      100
+2018-06-01	  8	      68
+2018-06-01	  9	      78
+2018-07-01	  6	      110
+2018-07-01	  7	      148
+2018-07-01	  8	      151
+...
+
+Q1.	Delivr’s total cost for stocking the product
+SELECT SUM (meal_cost*stocked_quantity) 
+FROM meals
+JOIN stock on meals.meal_id = stock.meal_id;
+
+Q2.	Which 5 meals that Delivr has spent the most on for stocking? (Delivr's top 5 meals are by overall cost)
+SELECT meals.meal_id,SUM(meal_cost*stocked_quantity) AS cost
+FROM meals
+JOIN stock ON meals.meal_id = stock.meal_id
+GROUP BY meals.meal_id
+
+Q3.	How much Delivr spent per month on average during its early months (before September 2018)?(**Here we will use CTEs to combine multiple queries and reference them in our main query**)
+WITH monthly_cost AS (
+SELECT
+  		DATE_TRUNC('month', stocking_date)::DATE AS delivr_month,
+  		SUM(meal_cost * stocked_quantity) AS cost
+FROM meals
+JOIN stock ON meals.meal_id = stock.meal_id
+GROUP BY delivr_month)
+SELECT
+   	  AVG(cost)
+FROM monthly_cost
+WHERE delivr_month < '09-01-2018';
+
+Q4.	How much profit each eatery is generating to strengthen their negotiating positions? 
+
+WITH 
+revenue AS (
+            SELECT meals.eatery, SUM(meal_price*order_quantity) AS revenue
+            FROM meals
+            JOIN orders ON meals.meal_id = orders.meal_id
+            GROUP BY eatery),
+cost AS (
+          SELECT meals.eatery, SUM(meal_cost*stocked_quantity) AS cost
+          FROM meals
+          JOIN stock ON meals.meal_id = stock.meal_id
+          GROUP BY eatery)
+SELECT cost.eatery, revenue, cost, revenue - cost AS profit
+FROM revenue
+JOIN cost ON revenue.eatery = cost.eatery
+ORDER BY profit DESC;
+
+Q5.	Delivr profits per month to see how well it's doing.
+WITH 
+revenue AS ( 
+	          SELECT
+	          DATE_TRUNC('month', order_date) :: DATE AS delivr_month,
+	          SUM(meal_price*order_quantity) AS revenue
+	          FROM meals
+	          JOIN orders ON meals.meal_id = orders.meal_id
+	          GROUP BY delivr_month),
+cost AS (
+ 	          SELECT
+		        DATE_TRUNC('month', stocking_date) :: DATE AS delivr_month,
+		        SUM(meal_cost*stocked_quantity) AS cost
+            FROM meals
+            JOIN stock ON meals.meal_id = stock.meal_id
+            GROUP BY delivr_month)
+
+SELECT
+	    cost.delivr_month,
+	    revenue-cost AS profit
+FROM revenue
+JOIN cost ON revenue.delivr_month = cost.delivr_month
+ORDER BY revenue.delivr_month ASC;
+
+****************************************************************************
+
+//NOTE: This excercise and all information in this document belong to Datacamp website and the author 'Michel Semaan' it's usage here is not to be considered as any claim of proprietorship in any way. It is a socumentation of my practice and understanding of the concepts explained in the abovementioned author's tutorial.//
